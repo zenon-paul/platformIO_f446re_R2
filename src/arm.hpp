@@ -2,8 +2,8 @@
 #define ARM_INCLUDE
 #include<mbed.h>
 
-#define CLOSE_DUTY 0
-#define OPEN_DUTY 0.5//未定
+#define CLOSE_PERIOD 500//1450
+#define OPEN_PERIOD 500
 #define OPENED 1
 #define CLOSED 0
 #define ACTIVE 1

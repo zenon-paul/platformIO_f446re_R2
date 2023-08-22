@@ -22,8 +22,12 @@ DigitalIn EncRBpin(D13);
 DigitalIn SncLpin(D2);//sencer
 DigitalIn SncRpin(D0);//sencer
 //-arm-------------------------
-PwmOut ArmServolpin(D5);//servo
-InterruptIn ArmSwpin(D10);//switch
+PwmOut ArmServopin(D11);//servo
+DigitalOut sendfg(D15);//フラグ送信
+DigitalIn sw(D2);//スイッチに直つなぎ
+InterruptIn ArmSwpin(D10);//フラグ受信
+
+DigitalOut testled(D14);
 
 
 t_motion motionlist[MOTIONSIZE];
@@ -34,6 +38,10 @@ MT mtr;
 Encoder encl;
 Encoder encr;
 Arm arm;
+
+unsigned int unsintmax = ~0;
+unsigned int checker = 0;
+int flag = 0;
 
 Ticker pidfunc;
 
@@ -93,10 +101,11 @@ void R2MotorOperate(){//ticker
 }
 
 void R2ArmClose(){//interrupt
+    testled = 1;
     if(arm.Activation == NONACTIVE){
         return;
     }
-    ArmServolpin = CLOSE_DUTY;
+    ArmServopin.pulsewidth_us(CLOSE_PERIOD);
     arm.Status = CLOSED;
 }
 
@@ -212,21 +221,31 @@ void R2AntiClockRotation(int rad){
 }
 
 void R2SwitchWait(){
+
+    printf("wait\n");
     mtl.Mode = STOP;
     mtr.Mode = STOP;
 
     arm.Activation = ACTIVE;
     while(arm.Status == OPENED){
-        printf("wait\n");
+        int swstatus = (sw)?1:0;
+        checker = (checker << 1) + swstatus;
+        flag = (checker == unsintmax);
+        sendfg = flag;
+        printf("s:%d r%d\n",swstatus,(ArmSwpin == 1)?1:0);
     }
     arm.Activation = NONACTIVE;
+
+    printf("wait_\n");
 }
 
 void R2ArmOpen(){
+    printf("open\n");
     mtl.Mode = STOP;
     mtr.Mode = STOP;
-    ArmServolpin = OPEN_DUTY;
+    ArmServopin.pulsewidth_us(OPEN_PERIOD);
     arm.Status = OPENED;
+    sleep_for(5000ms);
 }
 
 void R2Sleep(int sec){
@@ -265,6 +284,18 @@ void R2Simulation(){
             case ANTI:
                 R2AntiClockRotation(motionlist[i].argu);
                 break;
+            case SWWAIT:
+                R2SwitchWait();
+                break;
+            case OPENARM:
+                R2ArmOpen();
+                break;
+            case R2SLEEP:
+                R2Sleep(motionlist[i].argu);
+                break;
+            case SLOWBACK:
+                R2SLOWBack(motionlist[i].argu);
+                break;
             default:
                 break;
         }
@@ -300,14 +331,14 @@ int main(){
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
+    ArmServopin.period_us(20000);  //周期設定20ms
 
     pidfunc.attach(R2MotorOperate,100ms);//単位がマイクロ秒割込み開始
     EncLApin.rise(CountEncoderl);
     EncRApin.rise(CountEncoderr);
+    ArmSwpin.rise(R2ArmClose);
 
-    //ArmSwpin.rise(R2ArmClose);
-
-    int id[MOTIONSIZE] = {0,1,0,1,1,0};
+    int id[MOTIONSIZE] = {0,1,0,4,1,0};
     int arg[MOTIONSIZE] = {3000,2000,2000,2000,2000,1000};
     R2MakeMotionList(6,id,arg);
     R2Simulation();
