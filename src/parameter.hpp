@@ -20,4 +20,4 @@
 //------allowable_error-------
 #define ALLOWABLEERROR 0.01//目標の1パーセントの誤差以内で許容
 #define SPEESTOLERANCE 10 // n pulse/0.1s で許容
-#endif
+#endif////
