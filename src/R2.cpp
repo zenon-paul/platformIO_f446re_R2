@@ -1,6 +1,6 @@
 #include<mbed.h>//左右ちゃんと動くが目標パルス数が増えると左右の誤差がでる//次同時に動かす
 #include<stdio.h>
-#include"R2.hpp"
+#include"R2.hpp"//ピンかぶりに気を付け
 #include"parameter.hpp"
 //#include"pid_control.hpp"
 //interruptin の人たちのスタートのタイミング考える
@@ -15,16 +15,16 @@ PwmOut MtLSpdpin(D9);
 PwmOut MtRSpdpin(D6);
 //-enc-------------------------
 InterruptIn EncLApin(D4);
-InterruptIn EncRApin(D12);
+InterruptIn EncRApin(D11);
 DigitalIn EncLBpin(D3);
-DigitalIn EncRBpin(D13);
+DigitalIn EncRBpin(D12);
 //-sencer------------------------
 DigitalIn SncLpin(D2);//sencer
 DigitalIn SncRpin(D0);//sencer
 //-arm-------------------------
-PwmOut ArmServopin(D11);//servo
+PwmOut ArmServopin(D5);//servo
 DigitalOut sendfg(D15);//フラグ送信
-DigitalIn sw(D2);//スイッチに直つなぎ
+DigitalIn sw(D13);//スイッチに直つなぎ
 InterruptIn ArmSwpin(D10);//フラグ受信
 
 DigitalOut testled(D14);
@@ -46,9 +46,8 @@ int flag = 0;
 Ticker pidfunc;
 
 void R2MotorOperate(){//ticker
-    //PIDvelo(&MtL,EncL,&MtR,EncR);
     if(mtl.Mode == PIDCONTROL){
-        MtLSpdpin = mtl.PID((mtl.PlusMinus>0)?encl.Count:-encl.Count);
+        MtLSpdpin = mtl.PID((mtl.Direction>0)?encl.Count:-encl.Count);
         MtLDirpin = mtl.Dir;
     }
     else if(mtl.Mode == SLOW){
@@ -65,7 +64,7 @@ void R2MotorOperate(){//ticker
     }
 
     if(mtr.Mode == PIDCONTROL){
-        MtRSpdpin = mtr.PID((mtr.PlusMinus>0)?encr.Count:-encr.Count);
+        MtRSpdpin = mtr.PID((mtr.Direction>0)?encr.Count:-encr.Count);
         MtRDirpin = mtr.Dir;
     }
     else if(mtr.Mode == SLOW){
@@ -81,9 +80,9 @@ void R2MotorOperate(){//ticker
         MtRSpdpin = 0;
     }
 
-    /*MtLSpdpin = mtl.PID((mtl.PlusMinus>0)?encl.Count:-encl.Count);
+    /*MtLSpdpin = mtl.PID((mtl.Direction>0)?encl.Count:-encl.Count);
     MtLDirpin = mtl.Dir;
-    MtRSpdpin = mtr.PID((mtr.PlusMinus>0)?encr.Count:-encr.Count);
+    MtRSpdpin = mtr.PID((mtr.Direction>0)?encr.Count:-encr.Count);
     MtRDirpin = mtr.Dir;*/
     //testled = !testled;
 
@@ -145,13 +144,13 @@ void R2Go(int mm){
     int goal = mm;
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
-    mtl.PlusMinus = ENC_MINUS;
-    mtr.PlusMinus = ENC_PLUS;
+    mtl.Direction = ENC_MINUS;
+    mtr.Direction = ENC_PLUS;
 
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(2000);
+    sleep_for(5000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
@@ -166,13 +165,13 @@ void R2Back(int mm){
     int goal = mm;
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
-    mtl.PlusMinus = ENC_PLUS;
-    mtr.PlusMinus = ENC_MINUS;
+    mtl.Direction = ENC_PLUS;
+    mtr.Direction = ENC_MINUS;
 
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(2000);
+    sleep_for(5000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
@@ -186,13 +185,13 @@ void R2ClockRotation(int rad){
     int goal = rad;
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
-    mtl.PlusMinus = ENC_MINUS;
-    mtr.PlusMinus = ENC_MINUS;
+    mtl.Direction = ENC_MINUS;
+    mtr.Direction = ENC_MINUS;
 
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(2000);
+    sleep_for(5000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
@@ -206,13 +205,13 @@ void R2AntiClockRotation(int rad){
     int goal = rad;
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
-    mtl.PlusMinus = ENC_PLUS;
-    mtr.PlusMinus = ENC_PLUS;
+    mtl.Direction = ENC_PLUS;
+    mtr.Direction = ENC_PLUS;
 
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(2000);
+    sleep_for(5000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
@@ -331,17 +330,17 @@ int main(){
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
-    ArmServopin.period_us(20000);  //周期設定20ms
+    //ArmServopin.period_us(20000);  //周期設定20ms
 
     pidfunc.attach(R2MotorOperate,100ms);//単位がマイクロ秒割込み開始
     EncLApin.rise(CountEncoderl);
     EncRApin.rise(CountEncoderr);
-    ArmSwpin.rise(R2ArmClose);
+    //ArmSwpin.rise(R2ArmClose);
 
-    int id[MOTIONSIZE] = {0,1,0,4,1,0};
-    int arg[MOTIONSIZE] = {3000,2000,2000,2000,2000,1000};
+    int id[MOTIONSIZE] = {0,1,0,1,1,0};
+    int arg[MOTIONSIZE] = {2000,2000,2000,2000,2000,1000};
     R2MakeMotionList(6,id,arg);
     R2Simulation();
-    
+
     return 0;
 }

@@ -13,7 +13,7 @@ class MT{
     private:
     public:
         int GoalPulse;//目標パルス数(絶対値)//
-        int PlusMinus;//前進方向に進んだときエンコーダーを加算/後進方向に進んだときエンコーダーを加算//
+        int Direction;//前進方向に進んだときエンコーダーを加算/後進方向に進んだときエンコーダーを加算//
         //double OutPutv;//PID速度型の出力値(最終結果PWMに突っ込む値)
         int Dir;//各モーターの回転方向
         int PrevErr;//前回の差分//

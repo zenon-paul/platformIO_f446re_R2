@@ -4,7 +4,7 @@
 MT::MT(){
 //---initialize_mt------
     GoalPulse = 0;
-    PlusMinus = 0;
+    Direction = 0;
     PrevErr = 0;
     PrevOutPutp = 0;
     PrevOutPutv = 0;
@@ -22,7 +22,7 @@ void MT::MTSetGein(double p,double i,double d){
 
 void MT::MTReset(){
     GoalPulse = 0;
-    PlusMinus = 0;
+    Direction = 0;
     PrevErr = 0;
     PrevOutPutp = 0;
     PrevOutPutv = 0;
@@ -39,10 +39,10 @@ double MT::PID(int Current){
     PrevErr = err;
 
     if(err>0){//方向決め
-        Dir = (PlusMinus>0)?DIR_PLUS:DIR_MINUS;//ピンに出力
+        Dir = (Direction>0)?DIR_PLUS:DIR_MINUS;//ピンに出力
     }
     else{
-        Dir = (PlusMinus>0)?DIR_MINUS:DIR_PLUS;//ピンに出力
+        Dir = (Direction>0)?DIR_MINUS:DIR_PLUS;//ピンに出力
     }
 
     double outputp = kp*(double)err + ki*Acc + kd*errdif;

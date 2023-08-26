@@ -10,7 +10,7 @@
 #define MT_L_KI 0.000003
 #define MT_L_KD 0
 //-------right_wheel--------
-#define MT_R_KP 0.00035
+#define MT_R_KP 0.0002
 #define MT_R_KI 0.000003
 #define MT_R_KD 0
 //-------period------------
@@ -20,4 +20,4 @@
 //------allowable_error-------
 #define ALLOWABLEERROR 0.01//目標の1パーセントの誤差以内で許容
 #define SPEESTOLERANCE 10 // n pulse/0.1s で許容
-#endif////
+#endif
