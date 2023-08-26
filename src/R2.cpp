@@ -21,6 +21,8 @@ DigitalIn EncRBpin(D12);
 //-sencer------------------------
 DigitalIn SncLpin(D2);//sencer
 DigitalIn SncRpin(D0);//sencer
+DigitalIn SncL2pin(D1);//sencer
+DigitalIn SncR2pin(A0);//sencer
 //-arm-------------------------
 PwmOut ArmServopin(D5);//servo
 DigitalOut sendfg(D15);//フラグ送信
@@ -51,13 +53,7 @@ void R2MotorOperate(){//ticker
         MtLDirpin = mtl.Dir;
     }
     else if(mtl.Mode == SLOW){
-        if(SncLpin == IN){
-            MtLSpdpin = 0;
-            mtl.Mode = STOP;
-            return;
-        }
         MtLSpdpin = SLOW_DUTY;
-        MtLDirpin = DIR_PLUS;
     }
     else{
         MtLSpdpin = 0;
@@ -68,13 +64,7 @@ void R2MotorOperate(){//ticker
         MtRDirpin = mtr.Dir;
     }
     else if(mtr.Mode == SLOW){
-        if(SncRpin == IN){
-            MtRSpdpin = 0;
-            mtr.Mode = STOP;
-            return;
-        }
         MtLSpdpin = SLOW_DUTY;
-        MtLDirpin = DIR_MINUS;
     }
     else{
         MtRSpdpin = 0;
@@ -104,8 +94,18 @@ void R2ArmClose(){//interrupt
     if(arm.Activation == NONACTIVE){
         return;
     }
+
+    mtl.Mode = SLOW;
+    mtr.Mode = SLOW;
+    mtl.Dir = DIR_MINUS;
+    mtr.Dir = DIR_PLUS;
+
     ArmServopin.pulsewidth_us(CLOSE_PERIOD);
     arm.Status = CLOSED;
+    sleep_for(2000ms);
+
+    mtl.Mode = STOP;
+    mtr.Mode = STOP;
 }
 
 void CountEncoderl(){//inerrupt
@@ -240,11 +240,17 @@ void R2SwitchWait(){
 
 void R2ArmOpen(){
     printf("open\n");
-    mtl.Mode = STOP;
-    mtr.Mode = STOP;
+    mtl.Mode = SLOW;
+    mtr.Mode = SLOW;
+    mtl.Dir = DIR_MINUS;
+    mtr.Dir = DIR_PLUS;
+
     ArmServopin.pulsewidth_us(OPEN_PERIOD);
     arm.Status = OPENED;
-    sleep_for(5000ms);
+    sleep_for(2000ms);
+
+    mtl.Mode = STOP;
+    mtr.Mode = STOP;
 }
 
 void R2Sleep(int sec){
@@ -260,7 +266,29 @@ void R2Sleep(int sec){
 void R2SLOWBack(int id){
     mtl.Mode = SLOW;
     mtr.Mode = SLOW;
+    mtl.Dir = DIR_MINUS;
+    mtr.Dir = DIR_PLUS;
 
+    if(id == THRESHOLD1){
+        while((SncLpin == OUT)||(SncRpin == OUT)){
+            if(SncLpin == IN){
+                mtl.Mode = STOP;
+            }
+            if(SncRpin == IN){
+                mtr.Mode = STOP;
+            }
+        }
+    }
+    else if(id == THRESHOLD2){
+        while((SncL2pin == OUT)||(SncR2pin == OUT)){
+            if(SncL2pin == IN){
+                mtl.Mode = STOP;
+            }
+            if(SncR2pin == IN){
+                mtr.Mode = STOP;
+            }
+        }
+    }
     
     mtl.Mode = STOP;
     mtr.Mode = STOP;
