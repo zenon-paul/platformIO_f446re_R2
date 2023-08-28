@@ -30,5 +30,9 @@ typedef struct type_motion{
     int argu;
 }t_motion;
 
+void InitR2();
+int  R2MakeMotionList(int m,int* indlist,int* arglist);
+void R2Simulation();
+
 #endif
 //sick電装ちゃんとやらないと怪しい

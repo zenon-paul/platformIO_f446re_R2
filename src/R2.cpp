@@ -194,7 +194,7 @@ void R2Back(int mm){
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
     sleep_for(4000);
-    mtl.MTR eset();
+    mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
@@ -389,10 +389,7 @@ int  R2MakeMotionList(int m,int* indlist,int* arglist){//戻り値実際に受�
     }
 }
 
-
-
-int main(){
-
+void InitR2(){
     mtl.MTSetGein(MT_L_KP,MT_L_KI,0);
     mtr.MTSetGein(MT_R_KP,MT_R_KI,0);
     mtl.MTReset();
@@ -409,11 +406,5 @@ int main(){
     //send_serial.format(8,SerialBase::None,1);
     //sendfunc.attach(SendR2Status,100ms);//送信ticker割込み
 //-----------------------------------------
-
-    int id[MOTIONSIZE] = {1,2,1,0,1,1,0};
-    int arg[MOTIONSIZE] = {500,90,500,2000,2000,2000,2000,2000,2000,1000};
-    R2MakeMotionList(1,id,arg);
-    R2Simulation();
-
-    return 0;
 }
+
