@@ -2,9 +2,8 @@
 #include<stdio.h>
 #include"R2.hpp"//ピンかぶりに気を付け
 #include"parameter.hpp"
-//#include"pid_control.hpp"
-//interruptin の人たちのスタートのタイミング考える
 #include"motor.hpp"
+#define RATE 115200
 
 asm(".global _printf_float");
 using ThisThread::sleep_for;
@@ -19,21 +18,21 @@ InterruptIn EncRApin(D11);
 DigitalIn EncLBpin(D3);
 DigitalIn EncRBpin(D12);
 //-sencer------------------------
-DigitalIn SncLpin(D2);//sencer
-DigitalIn SncRpin(D0);//sencer
-DigitalIn SncL2pin(D1);//sencer
-DigitalIn SncR2pin(A0);//sencer
+DigitalIn SncLpin(A2);//sencer
+DigitalIn SncRpin(A4);//sencer
+//DigitalIn SncL2pin(A2);//sencer
+//DigitalIn SncR2pin(A4);//sencer
 //-arm-------------------------
-PwmOut ArmServopin(D5);//servo
-DigitalOut sendfg(D15);//フラグ送信
+PwmOut ArmServopin(D14);//servo初期値によっては動かないこともあるので注意あとピンがきつきつ
 DigitalIn sw(D13);//スイッチに直つなぎ
-InterruptIn ArmSwpin(D10);//フラグ受信
 
-DigitalOut testled(D14);
+DigitalOut led(A5);
 
 
+static UnbufferedSerial send_serial(A0,A1);//tx,rx
 t_motion motionlist[MOTIONSIZE];
 int motions;
+int crrmotion;
 
 MT mtl;
 MT mtr;
@@ -44,16 +43,31 @@ Arm arm;
 unsigned int unsintmax = ~0;
 unsigned int checker = 0;
 int flag = 0;
+int interruptflag = 0;
 
 Ticker pidfunc;
+Ticker sendfunc;
+char send_data[BUFFER_SIZE];
+
+void SendR2Status(){//ticker
+    led = !led;
+    memset(send_data,'\0',BUFFER_SIZE);
+    sprintf(send_data,"mvs%d crr%d crrmv%d L(C:%d E:%d S:%d)R(C:%d E:%d S:%d)\n",motions,crrmotion,motionlist[crrmotion],encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
+    send_serial.write(send_data,BUFFER_SIZE);
+}
 
 void R2MotorOperate(){//ticker
     if(mtl.Mode == PIDCONTROL){
         MtLSpdpin = mtl.PID((mtl.Direction>0)?encl.Count:-encl.Count);
         MtLDirpin = mtl.Dir;
     }
+    else if(mtl.Mode == SLOWBACK){
+        MtLSpdpin = SLOW_DUTY_L_BACK;
+        MtLDirpin = DIR_PLUS;
+    }
     else if(mtl.Mode == SLOW){
-        MtLSpdpin = SLOW_DUTY;
+        MtLSpdpin = SLOW_DUTY_L;
+        MtLDirpin = DIR_MINUS;
     }
     else{
         MtLSpdpin = 0;
@@ -63,8 +77,13 @@ void R2MotorOperate(){//ticker
         MtRSpdpin = mtr.PID((mtr.Direction>0)?encr.Count:-encr.Count);
         MtRDirpin = mtr.Dir;
     }
+    else if(mtr.Mode == SLOWBACK){
+        MtRSpdpin = SLOW_DUTY_R_BACK;
+        MtRDirpin = DIR_MINUS;
+    }
     else if(mtr.Mode == SLOW){
-        MtLSpdpin = SLOW_DUTY;
+        MtRSpdpin = SLOW_DUTY_R;
+        MtRDirpin = DIR_PLUS;
     }
     else{
         MtRSpdpin = 0;
@@ -89,20 +108,22 @@ void R2MotorOperate(){//ticker
     encr.PrevCnt = encr.Count;
 }
 
-void R2ArmClose(){//interrupt
-    testled = 1;
+void R2ArmClose(){//interrupt//サーボ操作すると右のモーター動かないのでピン変え
+
     if(arm.Activation == NONACTIVE){
         return;
     }
 
-    mtl.Mode = SLOW;
-    mtr.Mode = SLOW;
     mtl.Dir = DIR_MINUS;
     mtr.Dir = DIR_PLUS;
+    mtl.Mode = SLOW;
+    mtr.Mode = SLOW;
 
-    ArmServopin.pulsewidth_us(CLOSE_PERIOD);
+    for(int i = 0;i<=90;i++){
+        ArmServopin.pulsewidth_us(550+i*10);
+        sleep_for(15ms);
+    }
     arm.Status = CLOSED;
-    sleep_for(2000ms);
 
     mtl.Mode = STOP;
     mtr.Mode = STOP;
@@ -139,9 +160,8 @@ int JudgeConvergence(MT mt){//1-収束しない　0-収束
 void R2Go(int mm){
     mtl.Mode = PIDCONTROL;
     mtr.Mode = PIDCONTROL;
-    //int goal = (int)(mm/MM_PULSE);
-    printf("R2Go\n");
-    int goal = mm;
+
+    int goal = (int)(mm*MM_PULSE);
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
     mtl.Direction = ENC_MINUS;
@@ -150,19 +170,17 @@ void R2Go(int mm){
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(5000);
+    sleep_for(4000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
-    printf("_______R2Go\n");
 }
 void R2Back(int mm){
     mtl.Mode = PIDCONTROL;
     mtr.Mode = PIDCONTROL;
-    printf("R2Back\n");
-    //int goal = (int)(mm/MM_PULSE);
-    int goal = mm;
+
+    int goal = (int)(mm*MM_PULSE);
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
     mtl.Direction = ENC_PLUS;
@@ -171,18 +189,20 @@ void R2Back(int mm){
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(5000);
+    sleep_for(4000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
-    printf("__________R2Back\n");
 }
-void R2ClockRotation(int rad){
+void R2ClockRotation(int deg){
     mtl.Mode = PIDCONTROL;
     mtr.Mode = PIDCONTROL;
-    //int goal = (int)(mm/MM_PULSE);
-    int goal = rad;
+
+    double rad = deg*DEG_RAD;
+    double arc = 0.5*DIRE_WHEELS*rad;
+    int goal = (int)(arc * MM_PULSE);
+
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
     mtl.Direction = ENC_MINUS;
@@ -191,18 +211,21 @@ void R2ClockRotation(int rad){
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(5000);
+    sleep_for(4000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
     printf("R2Clock\n");
 }
-void R2AntiClockRotation(int rad){
+void R2AntiClockRotation(int deg){
     mtl.Mode = PIDCONTROL;
     mtr.Mode = PIDCONTROL;
-    //int goal = (int)(mm/MM_PULSE);
-    int goal = rad;
+    
+    double rad = deg*DEG_RAD;
+    double arc = 0.5*DIRE_WHEELS*rad;
+    int goal = (int)(arc * MM_PULSE);
+
     mtl.GoalPulse = goal;
     mtr.GoalPulse = goal;
     mtl.Direction = ENC_PLUS;
@@ -211,12 +234,11 @@ void R2AntiClockRotation(int rad){
     while(JudgeConvergence(mtl)||JudgeConvergence(mtr)){//打ち切るか切らないかチェック
         printf("Go L(C:%d E:%d S:%d) R(C:%d E:%d S:%d)\n",encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
     }
-    sleep_for(5000);
+    sleep_for(4000);
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
-    printf("R2Anti\n");
 }
 
 void R2SwitchWait(){
@@ -230,8 +252,10 @@ void R2SwitchWait(){
         int swstatus = (sw)?1:0;
         checker = (checker << 1) + swstatus;
         flag = (checker == unsintmax);
-        sendfg = flag;
-        printf("s:%d r%d\n",swstatus,(ArmSwpin == 1)?1:0);
+        printf("s:%d f%d ls%d rs%d\n",swstatus,flag,mtl.Mode,mtr.Mode);
+        if(flag == 1){
+            R2ArmClose();
+        }
     }
     arm.Activation = NONACTIVE;
 
@@ -240,14 +264,18 @@ void R2SwitchWait(){
 
 void R2ArmOpen(){
     printf("open\n");
-    mtl.Mode = SLOW;
-    mtr.Mode = SLOW;
-    mtl.Dir = DIR_MINUS;
-    mtr.Dir = DIR_PLUS;
+    sleep_for(5000ms);
+    mtl.Dir = DIR_PLUS;
+    mtr.Dir = DIR_MINUS;
+    mtl.Mode = SLOWBACK;
+    mtr.Mode = SLOWBACK;
 
-    ArmServopin.pulsewidth_us(OPEN_PERIOD);
+    for(int i = 0;i<=90;i++){
+        ArmServopin.pulsewidth_us(1450-i*10);
+        sleep_for(15ms);
+    }
     arm.Status = OPENED;
-    sleep_for(2000ms);
+    sleep_for(500ms);
 
     mtl.Mode = STOP;
     mtr.Mode = STOP;
@@ -263,9 +291,9 @@ void R2Sleep(int sec){
     sleep_for(sec);
 }
 
-void R2SLOWBack(int id){
-    mtl.Mode = SLOW;
-    mtr.Mode = SLOW;
+void R2SLOWBackandSTOP(int id){
+    mtl.Mode = SLOWBACK;
+    mtr.Mode = SLOWBACK;
     mtl.Dir = DIR_MINUS;
     mtr.Dir = DIR_PLUS;
 
@@ -295,21 +323,20 @@ void R2SLOWBack(int id){
 }
 
 void R2Simulation(){
-    int i = 0;
-    while(i<motions){
-        printf("Simulation:%d\n",i);
-        switch(motionlist[i].index){
+    while(crrmotion<motions){
+        printf("Simulation:%d\n",crrmotion);
+        switch(motionlist[crrmotion].index){
             case GO:
-                R2Go(motionlist[i].argu);
+                R2Go(motionlist[crrmotion].argu);
                 break;
             case BACK:
-                R2Back(motionlist[i].argu);
+                R2Back(motionlist[crrmotion].argu);
                 break;
             case CLOCK:
-                R2ClockRotation(motionlist[i].argu);
+                R2ClockRotation(motionlist[crrmotion].argu);
                 break;
             case ANTI:
-                R2AntiClockRotation(motionlist[i].argu);
+                R2AntiClockRotation(motionlist[crrmotion].argu);
                 break;
             case SWWAIT:
                 R2SwitchWait();
@@ -318,17 +345,18 @@ void R2Simulation(){
                 R2ArmOpen();
                 break;
             case R2SLEEP:
-                R2Sleep(motionlist[i].argu);
+                R2Sleep(motionlist[crrmotion].argu);
                 break;
-            case SLOWBACK:
-                R2SLOWBack(motionlist[i].argu);
+            case SLOWBACKANDSTOP:
+                R2SLOWBackandSTOP(motionlist[crrmotion].argu);
                 break;
             default:
                 break;
         }
-        i++;
+        crrmotion++;
     }
 }
+
 int  R2MakeMotionList(int m,int* indlist,int* arglist){//戻り値実際に受け入れられた動作数
     if(MOTIONSIZE<=m){
         return -1;
@@ -358,16 +386,20 @@ int main(){
     mtr.MTReset();
     encl.ENCReset();
     encr.ENCReset();
-    //ArmServopin.period_us(20000);  //周期設定20ms
+    ArmServopin.period_us(20000);  //周期設定20ms
 
-    pidfunc.attach(R2MotorOperate,100ms);//単位がマイクロ秒割込み開始
+    pidfunc.attach_us(R2MotorOperate,dTus);//単位がマイクロ秒割込み開始
     EncLApin.rise(CountEncoderl);
     EncRApin.rise(CountEncoderr);
-    //ArmSwpin.rise(R2ArmClose);
+//-----serial------------------------------
+    send_serial.baud(RATE);
+    send_serial.format(8,SerialBase::None,1);
+    sendfunc.attach(SendR2Status,100ms);//送信ticker割込み
+//-----------------------------------------
 
     int id[MOTIONSIZE] = {0,1,0,1,1,0};
-    int arg[MOTIONSIZE] = {2000,2000,2000,2000,2000,1000};
-    R2MakeMotionList(6,id,arg);
+    int arg[MOTIONSIZE] = {500,500,2000,2000,2000,2000,2000,2000,1000};
+    R2MakeMotionList(2,id,arg);
     R2Simulation();
 
     return 0;

@@ -4,7 +4,7 @@
 
 #define DIR_PLUS 1
 #define DIR_MINUS 0
-enum {PIDCONTROL,SLOW,STOP};
+enum {PIDCONTROL,SLOW,SLOWBACK,STOP};
 
 asm(".global _printf_float");
 using ThisThread::sleep_for;

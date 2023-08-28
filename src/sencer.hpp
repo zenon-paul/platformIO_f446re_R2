@@ -10,8 +10,6 @@ asm(".global _printf_float");
 
 class Sencer{
     private:
-        int FirstThreshold;
-        int SecondThreshold;
     public:
         int Status;
         Sencer();
