@@ -18,18 +18,16 @@ InterruptIn EncRApin(D11);
 DigitalIn EncLBpin(D3);
 DigitalIn EncRBpin(D12);
 //-sencer------------------------
-//DigitalIn SncLpin(A2);//sencer
-//DigitalIn SncRpin(A4);//sencer
-//DigitalIn SncL2pin(A2);//sencer
-//DigitalIn SncR2pin(A4);//sencer
+DigitalIn SncLpin(D2);//sencer
+DigitalIn SncRpin(D15);//sencer
+DigitalIn Snc2Lpin(D10);//sencer
+DigitalIn Snc2Rpin(D5);//sencer
 //-arm-------------------------
 PwmOut ArmServopin(D14);//servo初期値によっては動かないこともあるので注意あとピンがきつきつ
 DigitalIn sw(D13);//スイッチに直つなぎ
 
-DigitalOut led(A5);
 
-
-//static UnbufferedSerial send_serial(A0,A1);//tx,rx
+static UnbufferedSerial send_serial(A0,A1);//tx,rx
 t_motion motionlist[MOTIONSIZE];
 int motions;
 int crrmotion;
@@ -50,10 +48,9 @@ Ticker sendfunc;
 char send_data[BUFFER_SIZE];
 
 void SendR2Status(){//ticker
-    /*led = !led;
     memset(send_data,'\0',BUFFER_SIZE);
     sprintf(send_data,"mvs%d crr%d crrmv%d L(C:%d E:%d S:%d)R(C:%d E:%d S:%d)\n",motions,crrmotion,motionlist[crrmotion],encl.Count,mtl.PrevErr,mtl.Speed,encr.Count,mtr.PrevErr,mtr.Speed);
-    send_serial.write(send_data,BUFFER_SIZE);*/
+    send_serial.write(send_data,BUFFER_SIZE);
 }
 
 void R2MotorOperate(){//ticker
@@ -117,9 +114,7 @@ void R2ArmClose(){//interrupt//サーボ操作すると右のモーター動か�
     mtl.Mode = SLOW;
     mtr.Mode = SLOW;
 
-    mtl.Dir = DIR_MINUS;
-    mtr.Dir = DIR_PLUS;
-
+    sleep_for(3000ms);
     for(int i = 0;i<=90;i++){
         ArmServopin.pulsewidth_us(550+i*10);
         sleep_for(15ms);
@@ -159,6 +154,7 @@ int JudgeConvergence(MT mt){//1-収束しない　0-収束
 
 
 void R2Go(int mm){
+    printf("GO\n");
     mtl.Mode = PIDCONTROL;
     mtr.Mode = PIDCONTROL;
 
@@ -203,6 +199,7 @@ void R2Back(int mm){
     mtr.Mode = STOP;
 }
 void R2ClockRotation(int deg){
+    printf("CLOCK\n");
     mtl.Mode = PIDCONTROL;
     mtr.Mode = PIDCONTROL;
 
@@ -228,6 +225,7 @@ void R2ClockRotation(int deg){
     mtr.Mode = STOP;
 }
 void R2AntiClockRotation(int deg){
+    printf("ANTI\n");
     mtl.Mode = PIDCONTROL;
     mtr.Mode = PIDCONTROL;
     
@@ -304,35 +302,49 @@ void R2Sleep(int sec){
     sleep_for(sec);
 }
 
-void R2SLOWBackandSTOP(int id){
-    /*mtl.Mode = SLOWBACK;
+void R2SencerBack(int id){
+    mtl.Mode = SLOWBACK;
     mtr.Mode = SLOWBACK;
-    mtl.Dir = DIR_MINUS;
-    mtr.Dir = DIR_PLUS;
+    int statusl = 0;
+    int statusr = 0;
 
     if(id == THRESHOLD1){
-        while((SncLpin == OUT)||(SncRpin == OUT)){
+        while(1){
+            if((statusl == 1)&&(statusr == 1)){
+                break;
+            }
             if(SncLpin == IN){
                 mtl.Mode = STOP;
+                statusl = 1;
             }
             if(SncRpin == IN){
                 mtr.Mode = STOP;
+                statusr = 1;
             }
+            printf("L%d R%d\n",(SncLpin == 1)?1:0,(SncRpin == 1)?1:0);
+            sleep_for(10ms);
         }
     }
     else if(id == THRESHOLD2){
-        while((SncL2pin == OUT)||(SncR2pin == OUT)){
-            if(SncL2pin == IN){
+        while(1){
+            if((statusl == 1)&&(statusr == 1)){
+                break;
+            }
+            if(Snc2Lpin == IN){
                 mtl.Mode = STOP;
+                statusl = 1;
             }
-            if(SncR2pin == IN){
+            if(Snc2Rpin == IN){
                 mtr.Mode = STOP;
+                statusr = 1;
             }
+            printf("L%d R%d\n",(Snc2Lpin == 1)?1:0,(Snc2Rpin == 1)?1:0);
+            sleep_for(10ms);
         }
     }
     
     mtl.Mode = STOP;
-    mtr.Mode = STOP;*/
+    mtr.Mode = STOP;
 }
 
 void R2Simulation(){
@@ -360,8 +372,8 @@ void R2Simulation(){
             case R2SLEEP:
                 R2Sleep(motionlist[crrmotion].argu);
                 break;
-            case SLOWBACKANDSTOP:
-                R2SLOWBackandSTOP(motionlist[crrmotion].argu);
+            case SENCER:
+                R2SencerBack(motionlist[crrmotion].argu);
                 break;
             default:
                 break;
@@ -402,9 +414,8 @@ void InitR2(){
     EncLApin.rise(CountEncoderl);
     EncRApin.rise(CountEncoderr);
 //-----serial------------------------------
-    //send_serial.baud(RATE);
-    //send_serial.format(8,SerialBase::None,1);
-    //sendfunc.attach(SendR2Status,100ms);//送信ticker割込み
+    send_serial.baud(RATE);
+    send_serial.format(8,SerialBase::None,1);
+    sendfunc.attach(SendR2Status,100ms);//送信ticker割込み
 //-----------------------------------------
 }
-

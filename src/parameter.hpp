@@ -16,7 +16,7 @@
 #define MT_L_KI 0.000003
 #define MT_L_KD 0
 //-------right_wheel--------
-#define MT_R_KP 0.0002//ｐゲイン不足
+#define MT_R_KP 0.0003//ｐゲイン不足
 #define MT_R_KI 0.000003
 #define MT_R_KD 0
 //-------period------------

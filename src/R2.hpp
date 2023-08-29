@@ -14,7 +14,8 @@
 #define SLOW_DUTY_R_BACK 0.2
 #define SLOW_DUTY_L_BACK 0.2
 #define BUFFER_SIZE 64
-enum{GO,BACK,CLOCK,ANTI,SWWAIT,OPENARM,R2SLEEP,SLOWBACKANDSTOP,MOTIONTYPES};
+
+enum{GO,BACK,CLOCK,ANTI,SWWAIT,OPENARM,R2SLEEP,SENCER,MOTIONTYPES};
 //   0   1    2     3     4       5      6         7      8
 #include<mbed.h>
 #include"motor.hpp"

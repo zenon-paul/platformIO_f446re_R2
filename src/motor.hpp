@@ -4,7 +4,14 @@
 
 #define DIR_PLUS 1
 #define DIR_MINUS 0
-enum {PIDCONTROL,SLOW,SLOWBACK,STOP};
+
+#define ACC (0.0002*dTms*dTms)//(mm/dt^2) 2m/s^2
+#define MAX_SPEED (1.0*dTms)//mm/dt 時速3.6キロ(歩くスピード) 1m/s
+#define START_SPEED 0
+#define END_SPEED 0
+#define MIDLE 10
+
+enum {PIDCONTROL,SLOW,SLOWBACK,DAIKEI,STOP};
 
 asm(".global _printf_float");
 using ThisThread::sleep_for;
@@ -27,10 +34,14 @@ class MT{
 
         int Speed;
         int Mode;
+//---daikei-----------------------------
+        int T[3];
+//--------------------------------------
         MT();
         void MTSetGein(double p,double i,double d);
         void MTReset();
         double PID(int Current);
+        void MakeVeloPlan(int mm);
 };
 
 #endif
