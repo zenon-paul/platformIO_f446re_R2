@@ -1,20 +1,36 @@
 #include"motor.hpp"
 #include"parameter.hpp"
+#include<math.h>
 
 MT::MT(){
-//---initialize_mt------
-    GoalPulse = 0;
-    Direction = 0;
-    PrevErr = 0;
-    PrevOutPutp = 0;
-    PrevOutPutv = 0;
-    Acc = 0;
-    Dir = DIR_PLUS;
-    Speed = 0;
+    goal_mm = 0;
     Mode = STOP;
+    Direction = 1;
     T[0] = 0;
     T[1] = 0;
     T[2] = 0;
+    period = 0;
+    count_time = 0;
+
+    prcnt = 0;
+    spd = 0;//明日単位変える
+    prev_errspd = 0;
+    Dir = 0;
+
+    restgoalspd_mm = MIDLE*ACC;
+    goalspd_mm = 0;//mm
+
+    errspd = 0;
+
+    acc = 0;
+    dif = 0;
+    dif_ = 0;
+
+    output_p = 0;
+    output_v = 0;
+    acc_output_v = 0;
+    prev_output_v = 0;
+    prev_output_p = 0;
 }
 
 void MT::MTSetGein(double p,double i,double d){
@@ -24,52 +40,97 @@ void MT::MTSetGein(double p,double i,double d){
 }
 
 void MT::MTReset(){
-    GoalPulse = 0;
-    Direction = 0;
-    PrevErr = 0;
-    PrevOutPutp = 0;
-    PrevOutPutv = 0;
-    Acc = 0;
-    Dir = DIR_PLUS;
-    Speed = 0;
-    Mode = PIDCONTROL;
+    goal_mm = 0;
+    Direction = 1;
     T[0] = 0;
     T[1] = 0;
     T[2] = 0;
-}
-double MT::PID(int Current){
-//---位置型------------------------
-    int err = GoalPulse - Current;
-    Acc += (double)err*dTs;
-    double errdif = (double)(err - PrevErr)/dTs;
-    PrevErr = err;
+    period = 0;
+    count_time = 0;
 
-    if(err>0){//方向決め
-        Dir = (Direction>0)?DIR_PLUS:DIR_MINUS;//ピンに出力
-    }
-    else{
-        Dir = (Direction>0)?DIR_MINUS:DIR_PLUS;//ピンに出力
-    }
+    prcnt = 0;
+    spd = 0;//明日単位変える
+    prev_errspd = 0;
+    Dir = 0;
 
-    double outputp = kp*(double)err + ki*Acc + kd*errdif;
+    restgoalspd_mm = MIDLE*ACC;
+    goalspd_mm = 0;//mm
 
-//---速度型------------------------
-    double outdif = outputp - PrevOutPutp;
-    double outputv = outdif + PrevOutPutv;
+    errspd = 0;
 
-    PrevOutPutp = outputp;
-    PrevOutPutv = outputv;
+    acc = 0;
+    dif = 0;
+    dif_ = 0;
 
-    return (outputv>=0)?outputv:-outputv;//ピンに出力
+    output_p = 0;
+    output_v = 0;
+    acc_output_v = 0;
+    prev_output_v = 0;
+    prev_output_p = 0;
 }
 
-void MT::MakeVeloPlan(int mm){
+
+
+double MT::PID(int cnt){
+    
+    if(period == 3){
+        return 0;
+    }
+    if(count_time == T[period]){
+        count_time = 0;
+        period++;
+        if(period == 1){
+            if(T[period] == 0){
+                period = 2;
+            }
+        }
+    }
+//------------------pid_posi-----------------------------
+    spd = cnt - prcnt;
+    prcnt = cnt;
+//-----------------------------------------------------------
+    if(count_time%MIDLE == 0){
+        goalspd_mm = restgoalspd_mm;
+    }
+    errspd = (int)(goalspd_mm*MM_PULSE) - spd;
+    acc += (double)errspd*dTs;
+    dif = (double)(errspd-prev_errspd)/dTs;
+
+    prev_errspd = errspd;
+    
+    output_p = kp*(double)errspd + ki*acc + kd*dif;
+//------------------pid_velo--------------------------
+
+    dif_ = (double)(output_p - prev_output_p)/dTs;
+    output_v = dif_ + prev_output_v;
+
+    prev_output_p = output_p;
+    prev_output_v = output_v;
+
+    acc_output_v += output_v*dTs;
+    
+    Dir = (Direction > 0)?1:0;//
+
+    if(period == 0){
+        restgoalspd_mm+=ACC;
+    }
+    else if(period == 2){
+        restgoalspd_mm-=ACC;
+    }
+    count_time++;
+    return acc_output_v;
+}
+
+//-----------------------------------------------------------
+
+void MT::make_velo_plan(double mm){
     if(mm<0){
         T[0] = 0;
         T[1] = 0;
         T[2] = 0;
         return;
     }
+    goal_mm = mm;
     double t0 = (MAX_SPEED-START_SPEED)/ACC;
     double t2 = (MAX_SPEED-END_SPEED)/ACC;
 

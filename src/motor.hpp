@@ -1,6 +1,5 @@
 #ifndef MOTOR_INCLUDE
 #define MOTOR_INCLUDE
-#include<mbed.h>
 
 #define DIR_PLUS 1
 #define DIR_MINUS 0
@@ -11,37 +10,52 @@
 #define END_SPEED 0
 #define MIDLE 10
 
+#define RAD_PULSE (2*PI/RESOLUTION)//rad/パルス数
+#define MM_PULSE (RESOLUTION/(2.0*PI*RADIUS))//vからw'これをmm/dtに掛ければいい mm->pulse
+
 enum {PIDCONTROL,SLOW,SLOWBACK,DAIKEI,STOP};
 
-asm(".global _printf_float");
-using ThisThread::sleep_for;
 
 class MT{
     private:
     public:
-        int GoalPulse;//目標パルス数(絶対値)//
-        int Direction;//前進方向に進んだときエンコーダーを加算/後進方向に進んだときエンコーダーを加算//
-        //double OutPutv;//PID速度型の出力値(最終結果PWMに突っ込む値)
-        int Dir;//各モーターの回転方向
-        int PrevErr;//前回の差分//
-        double PrevOutPutp;//前回のPID位置型の出力値//
-        double PrevOutPutv;//前回のPID速度型の出力値//
-        double Acc;//累積和//
+        int Mode;
+        int Direction;
+        int T[3];
+        int period;
+        int count_time;
 
-        double kp;
-        double ki;
+        int prcnt;
+        int spd;
+        int prev_errspd;
+        int Dir;
+
+        double kp;//0.0003//4000pulseぐらいでいいゲイン
+        double ki;//0.000005
         double kd;
 
-        int Speed;
-        int Mode;
-//---daikei-----------------------------
-        int T[3];
-//--------------------------------------
+        double goal_mm;
+        double restgoalspd_mm;
+        double goalspd_mm;//mm
+
+        int errspd;
+
+        double acc;
+        double dif;
+        double dif_;
+
+
+        double output_p;
+        double output_v;
+        double acc_output_v;
+        double prev_output_v;
+        double prev_output_p;
+
         MT();
         void MTSetGein(double p,double i,double d);
         void MTReset();
-        double PID(int Current);
-        void MakeVeloPlan(int mm);
+        double PID(int crr);
+        void make_velo_plan(double mm);
 };
 
 #endif

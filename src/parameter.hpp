@@ -12,17 +12,17 @@
 #define RAD_PULSE (RESOLUTION/(2*PI))//rad * RAD_PULSE == pulse
 #define MM_PULSE (RESOLUTION/(2.0*PI*WHEEL_RADIUS))//mm * MM_PULSE == pulse
 //-------left_wheel--------
-#define MT_L_KP 0.0003 //0.0004
-#define MT_L_KI 0.000003
-#define MT_L_KD 0
+#define MT_L_KP 0.000228 //0.0004
+#define MT_L_KI 0.00001
+#define MT_L_KD 0.000004
 //-------right_wheel--------
-#define MT_R_KP 0.0003//ｐゲイン不足
-#define MT_R_KI 0.000003
-#define MT_R_KD 0
+#define MT_R_KP 0.0002//ｐゲイン不足
+#define MT_R_KI 0.00003
+#define MT_R_KD 0.000004
 //-------period------------
-#define dTs 0.1/*second*/
-#define dTms 100/*milisec*/
-#define dTus 100000/*microsec*/
+#define dTms 10/*milisec*/
+#define dTs (dTms*0.001)/*second*/
+#define dTus (dTms*1000)/*microsec*/
 //------allowable_error-------
 #define ALLOWABLEERROR 0.01//目標の1パーセントの誤差以内で許容
 #define SPEESTOLERANCE 10 // n pulse/0.1s で許容

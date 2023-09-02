@@ -10,13 +10,15 @@
 
 #define MOTIONSIZE 32
 #define SLOW_DUTY_R 0.2
-#define SLOW_DUTY_L 0.228
+#define SLOW_DUTY_L 0.225
 #define SLOW_DUTY_R_BACK 0.2
 #define SLOW_DUTY_L_BACK 0.2
 #define BUFFER_SIZE 64
+#define RATE 115200
 
-enum{GO,BACK,CLOCK,ANTI,SWWAIT,OPENARM,R2SLEEP,SENCER,MOTIONTYPES};
-//   0   1    2     3     4       5      6         7      8
+//80度指定で90度曲がる
+enum{GO,BACK,CLOCK,ANTI,SWWAIT,OPENARM,R2SLEEP,SENCER_G,SENCER_B,MOTIONTYPES};
+//   0   1    2     3     4       5      6         7      8         9
 #include<mbed.h>
 #include"motor.hpp"
 #include"sencer.hpp"
@@ -36,4 +38,3 @@ int  R2MakeMotionList(int m,int* indlist,int* arglist);
 void R2Simulation();
 
 #endif
-//sick電装ちゃんとやらないと怪しい
