@@ -2,7 +2,7 @@
 #include"parameter.hpp"
 #include<math.h>
 
-MT::MT(){
+MT::MT(int name){
     goal_mm = 0;
     Mode = STOP;
     Direction = 1;
@@ -31,6 +31,9 @@ MT::MT(){
     acc_output_v = 0;
     prev_output_v = 0;
     prev_output_p = 0;
+
+    NAME = name;
+
 }
 
 void MT::MTSetGein(double p,double i,double d){
@@ -98,7 +101,8 @@ double MT::PID(int cnt){
 
     prev_errspd = errspd;
     
-    output_p = kp*(double)errspd + ki*acc + kd*dif;
+    //output_p = kp*(double)errspd + ki*acc + kd*dif;
+    output_p = kp*(double)errspd + (((NAME == RIGHT)&&(Mode == 2))?0:ki)*acc + kd*dif;
 //------------------pid_velo--------------------------
 
     dif_ = (double)(output_p - prev_output_p)/dTs;

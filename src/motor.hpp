@@ -4,11 +4,14 @@
 #define DIR_PLUS 1
 #define DIR_MINUS 0
 
-#define ACC (0.0002*dTms*dTms)//(mm/dt^2) 2m/s^2
-#define MAX_SPEED (1.0*dTms)//mm/dt 時速3.6キロ(歩くスピード) 1m/s
+#define ACC (0.0008*dTms*dTms)//(mm/dt^2) 2m/s^2
+#define MAX_SPEED (0.8*dTms)//mm/dt 時速3.6キロ(歩くスピード) 1m/s
 #define START_SPEED 0
 #define END_SPEED 0
 #define MIDLE 10
+
+#define RIGHT 1
+#define LEFT 0
 
 #define RAD_PULSE (2*PI/RESOLUTION)//rad/パルス数
 #define MM_PULSE (RESOLUTION/(2.0*PI*RADIUS))//vからw'これをmm/dtに掛ければいい mm->pulse
@@ -51,7 +54,9 @@ class MT{
         double prev_output_v;
         double prev_output_p;
 
-        MT();
+        int NAME;
+
+        MT(int name);
         void MTSetGein(double p,double i,double d);
         void MTReset();
         double PID(int crr);

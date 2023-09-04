@@ -17,10 +17,14 @@ InterruptIn EncRApin(D11);
 DigitalIn EncLBpin(D3);
 DigitalIn EncRBpin(D12);
 //-sencer------------------------
-DigitalIn SncLpin(D2);//sencer
+/*DigitalIn SncLpin(D2);//sencer
 DigitalIn SncRpin(D15);//sencer
 DigitalIn Snc2Lpin(D10);//sencer
-DigitalIn Snc2Rpin(D5);//sencer
+DigitalIn Snc2Rpin(D5);//sencer*/
+DigitalIn SncLpin(D10);//sencer
+DigitalIn SncRpin(D5);//sencer
+DigitalIn Snc2Lpin(A5);//sencer
+DigitalIn Snc2Rpin(D15);//sencer
 //-arm-------------------------
 PwmOut ArmServopin(D14);//servo初期値によっては動かないこともあるので注意あとピンがきつきつ
 DigitalIn sw(D13);//スイッチに直つなぎ
@@ -32,8 +36,8 @@ t_motion motionlist[MOTIONSIZE];
 int motions;
 int crrmotion;
 
-MT mtl;
-MT mtr;
+MT mtl(LEFT);
+MT mtr(RIGHT);
 Encoder encl;
 Encoder encr;
 Arm arm;
@@ -45,10 +49,21 @@ int interruptflag = 0;
 
 Ticker pidfunc;
 Ticker sendfunc;
+Ticker servofunc;
+
 char send_data[BUFFER_SIZE];
+int ii = 0;
 
 double f(int x){
-    return 0.9652278177*x + 19.112709832;
+    return ANGLE*x + SLICE;
+}
+
+void ServoIn(){
+    if(ii>90){
+        return;
+    }
+    ArmServopin.pulsewidth_us(550+ii*10);
+    ii++;
 }
 
 void SendR2Status(){//ticker
@@ -98,14 +113,19 @@ void R2ArmClose(){//interrupt//サーボ操作すると右のモーター動か�
         return;
     }
     sleep_for(3000ms);
-    mtl.Mode = SLOW;
-    mtr.Mode = SLOW;
+    servofunc.attach_us(ServoIn,15000);
+    R2Go(f(300));
+    servofunc.detach();
+    ii = 0;
+    //mtl.Mode = SLOW;
+    //mtr.Mode = SLOW;
 
-    for(int i = 0;i<=90;i++){
+    /*for(int i = 0;i<=90;i++){
         ArmServopin.pulsewidth_us(550+i*10);
         sleep_for(15ms);
-    }
+    }*/
     arm.Status = CLOSED;
+
 }
 
 void CountEncoderl(){//inerrupt
@@ -303,6 +323,7 @@ void R2SencerGo(int id){
 
     if(id == THRESHOLD1){
         while(1){
+            printf("%d %d %d %d\n",(SncLpin == 1)?1:0,(SncRpin == 1)?1:0,statusl,statusr);
             if((statusl == 1)&&(statusr == 1)){
                 break;
             }
@@ -363,7 +384,7 @@ void R2SencerBack(int id){
                 mtr.Mode = STOP;
                 statusr = 1;
             }
-            printf("L%d R%d\n",(SncLpin == 1)?1:0,(SncRpin == 1)?1:0);
+            printf("SB:L%d R%d sl%d sr%d\n",(SncLpin == 1)?1:0,(SncRpin == 1)?1:0,statusl,statusr);
             sleep_for(10ms);
         }
     }
@@ -387,6 +408,200 @@ void R2SencerBack(int id){
     
     mtl.Mode = STOP;
     mtr.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+}
+/*
+void R2ArcGoClock(int radius){
+    mtl.Mode = PIDCONTROL;
+    mtr.Mode = PIDCONTROL;
+
+    mtl.make_velo_plan(f((int)(ARC_RAD*(radius+R2RADIUS))));
+    mtr.make_velo_plan(f((int)(ARC_RAD*(radius-R2RADIUS))));
+    mtl.Direction = ENC_MINUS;
+    mtr.Direction = ENC_PLUS;
+
+    while(1){
+        if((mtl.period == 3)&&(mtr.period == 3)){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+
+    sleep_for(2000);
+    mtl.Mode = STOP;
+    mtr.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+
+}
+void R2ArcBackClock(int radius){
+    mtl.Mode = PIDCONTROL;
+    mtr.Mode = PIDCONTROL;
+
+    mtl.make_velo_plan(f((int)(ARC_RAD*(radius-R2RADIUS))));
+    mtr.make_velo_plan(f((int)(ARC_RAD*(radius+R2RADIUS))));
+    mtl.Direction = ENC_PLUS;
+    mtr.Direction = ENC_MINUS;
+
+    while(1){
+        if((mtl.period == 3)&&(mtr.period == 3)){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+
+    sleep_for(2000);
+    mtl.Mode = STOP;
+    mtr.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+
+}
+void R2ArcGoAnti(int radius){
+    mtl.Mode = PIDCONTROL;
+    mtr.Mode = PIDCONTROL;
+
+    mtl.make_velo_plan(f((int)(ARC_RAD*(radius-R2RADIUS))));
+    mtr.make_velo_plan(f((int)(ARC_RAD*(radius+R2RADIUS))));
+    mtl.Direction = ENC_MINUS;
+    mtr.Direction = ENC_PLUS;
+
+    while(1){
+        if((mtl.period == 3)&&(mtr.period == 3)){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+
+    sleep_for(2000);
+    mtl.Mode = STOP;
+    mtr.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+
+}
+void R2ArcBackAnti(int radius){
+    mtl.Mode = PIDCONTROL;
+    mtr.Mode = PIDCONTROL;
+
+    mtl.make_velo_plan(f((int)(ARC_RAD*(radius+R2RADIUS))));
+    mtr.make_velo_plan(f((int)(ARC_RAD*(radius-R2RADIUS))));
+    mtl.Direction = ENC_PLUS;
+    mtr.Direction = ENC_MINUS;
+
+    while(1){
+        if((mtl.period == 3)&&(mtr.period == 3)){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+
+    sleep_for(2000);
+    mtl.Mode = STOP;
+    mtr.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+
+}
+*/
+void AxisLeftGo(int deg){//右動く
+    mtl.Mode = STOP;
+    mtr.Mode = PIDCONTROL;
+
+    double rad = deg*DEG_RAD;
+    double arc = 0.5*DIRE_WHEELS*rad;
+
+    mtr.make_velo_plan(f(arc));
+    mtr.Direction = ENC_PLUS;
+
+    while(1){
+        if(mtr.period == 3){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+    sleep_for(2000);
+    mtr.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+}
+void AxisLeftBack(int deg){//右動く
+    printf("BACK\n");
+    mtl.Mode = STOP;
+    mtr.Mode = PIDCONTROL;
+
+    double rad = deg*DEG_RAD;
+    double arc = 0.5*DIRE_WHEELS*rad;
+    mtr.make_velo_plan(f(arc));
+    mtr.Direction = ENC_MINUS;
+
+    while(1){
+        if(mtr.period == 3){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+    sleep_for(2000);
+    mtr.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+}
+void AxisRightGo(int deg){//左
+    printf("GO\n");
+    mtl.Mode = PIDCONTROL;
+    mtr.Mode = STOP;
+
+    double rad = deg*DEG_RAD;
+    double arc = 0.5*DIRE_WHEELS*rad;
+    mtl.make_velo_plan(f(arc));
+    mtl.Direction = ENC_MINUS;
+
+    while(1){
+        if(mtl.period == 3){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+    sleep_for(2000);
+    mtl.Mode = STOP;
+    mtl.MTReset();
+    mtr.MTReset();
+    encl.ENCReset();
+    encr.ENCReset();
+}
+void AxisRightBack(int deg){
+    printf("Back\n");
+    mtl.Mode = PIDCONTROL;
+    mtr.Mode = STOP;
+
+    double rad = deg*DEG_RAD;
+    double arc = 0.5*DIRE_WHEELS*rad;
+    mtl.make_velo_plan(f(arc));
+    mtl.Direction = ENC_PLUS;
+
+    while(1){
+        if(mtl.period == 3){
+            break;
+        }
+        printf("L(gm%d cm%d csm%d )R(gm%d cm%d csm%d )\n",(int)mtl.goal_mm,(int)(((mtl.Direction>0)?encl.Count:-encl.Count)/MM_PULSE),(int)(mtl.spd/MM_PULSE),(int)mtr.goal_mm,(int)(((mtr.Direction>0)?encr.Count:-encr.Count)/MM_PULSE),(int)(mtr.spd/MM_PULSE));
+    }
+    sleep_for(2000);
+    mtl.Mode = STOP;
     mtl.MTReset();
     mtr.MTReset();
     encl.ENCReset();
@@ -424,6 +639,17 @@ void R2Simulation(){
             case SENCER_B:
                 R2SencerBack(motionlist[crrmotion].argu);
                 break;
+            case AXLG:
+                AxisLeftGo(motionlist[crrmotion].argu);
+                break;
+            case AXLB:
+                AxisLeftBack(motionlist[crrmotion].argu);
+                break;
+            case AXRG:
+                AxisRightGo(motionlist[crrmotion].argu);
+                break;
+            case AXRB:
+                AxisRightBack(motionlist[crrmotion].argu);
             default:
                 break;
         }
