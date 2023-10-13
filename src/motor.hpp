@@ -13,9 +13,6 @@
 #define RIGHT 1
 #define LEFT 0
 
-#define RAD_PULSE (2*PI/RESOLUTION)//rad/パルス数
-#define MM_PULSE (RESOLUTION/(2.0*PI*RADIUS))//vからw'これをmm/dtに掛ければいい mm->pulse
-
 enum {PIDCONTROL,SLOW,SLOWBACK,DAIKEI,STOP};
 
 

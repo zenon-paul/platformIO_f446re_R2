@@ -7,7 +7,7 @@
 #define DEG_RAD (PI/180.0)//deg * DEG__RAD == rad
 //-----r2--------------------
 #define RESOLUTION 2048
-#define WHEEL_RADIUS 44.0
+#define WHEEL_RADIUS 46.0
 #define DIRE_WHEELS (375-30)//mm
 #define R2RADIUS (0.5*DIRE_WHEELS)
 #define RAD_PULSE (RESOLUTION/(2*PI))//rad * RAD_PULSE == pulse
@@ -18,7 +18,7 @@
 #define MT_L_KD 0//0.000004
 //-------right_wheel--------
 #define MT_R_KP 0.00021//ｐゲイン不足
-#define MT_R_KI 0.000008
+#define MT_R_KI 0.000012
 #define MT_R_KD 0//0.000004
 //-------period------------
 #define dTms 10/*milisec*/
